@@ -145,6 +145,8 @@ The rotations of 3D joints are represented using 3D exponential maps, and the ro
 ## Motion Retargeting
 Motion retargeting can be done using [GMR](https://github.com/YanjieZe/GMR). A script to convert GMR files to the MimicKit format is available in [`tools/gmr_to_mimickit/`](tools/gmr_to_mimickit/).
 
+A script to convert SMPL motion files from [AMASS](https://amass.is.tue.mpg.de/) to the MimicKit format is available in [`tools/smpl_to_mimickit/`](tools/smpl_to_mimickit/).
+
 ---
 
 ## Citation
