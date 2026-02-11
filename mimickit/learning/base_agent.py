@@ -78,9 +78,9 @@ class BaseAgent(torch.nn.Module):
             env_diag_info = self._env.record_diagnostics()
             self._log_train_info(train_info, test_info, env_diag_info, start_time) 
             self._logger.print_log()
+            self._logger.write_log()
 
             if (output_iter):
-                self._logger.write_log()
                 self._output_train_model(self._iter, out_model_file, int_out_dir)
 
                 self._train_return_tracker.reset()
@@ -100,7 +100,7 @@ class BaseAgent(torch.nn.Module):
         with torch.no_grad():
             self._curr_obs, self._curr_info = self._reset_envs()
             test_info = self._rollout_test(num_eps_proc)
-            
+
         return test_info
     
     def get_action_size(self):
@@ -315,7 +315,6 @@ class BaseAgent(torch.nn.Module):
                 "mean_ep_len": test_ep_len.item(),
                 "num_eps": self._test_return_tracker.get_episodes()
             }
-
         return test_info
 
     @abc.abstractmethod
