@@ -1,9 +1,0 @@
-*.pkl filter=lfs diff=lfs merge=lfs -text
-*.pt filter=lfs diff=lfs merge=lfs -text
-*.pth filter=lfs diff=lfs merge=lfs -text
-*.ckpt filter=lfs diff=lfs merge=lfs -text
-*.tar.gz filter=lfs diff=lfs merge=lfs -text
-*.zip filter=lfs diff=lfs merge=lfs -text
-data/models/** filter=lfs diff=lfs merge=lfs -text
-data/logs/** filter=lfs diff=lfs merge=lfs -text
-data/motions/** filter=lfs diff=lfs merge=lfs -text
