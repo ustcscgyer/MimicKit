@@ -1,4 +1,5 @@
 from isaaclab.app import AppLauncher
+from util.video_recorder import VideoRecorder
 
 import carb
 
@@ -59,9 +60,10 @@ class ObjCfg:
 
 
 class IsaacLabEngine(engine.Engine):
-    def __init__(self, config, num_envs, device, visualize, enable_cameras=False):
+    def __init__(self, config, num_envs, device, visualize, record_video=False):
         super().__init__()
 
+        self.video_recorder = None
         self._device = device
         sim_freq = config.get("sim_freq", 60)
         control_freq = config.get("control_freq", 10)
@@ -72,7 +74,7 @@ class IsaacLabEngine(engine.Engine):
         self._sim_steps = int(sim_freq / control_freq)
         sim_timestep = 1.0 / sim_freq
 
-        self._create_simulator(sim_timestep, visualize, enable_cameras)
+        self._create_simulator(sim_timestep, visualize, record_video)
 
         self._env_spacing = config["env_spacing"]
         self._obj_cfgs = []
@@ -86,9 +88,12 @@ class IsaacLabEngine(engine.Engine):
         self._build_ground()
         self._env_offsets = self._compute_env_offsets(num_envs)
 
-        if (visualize or enable_cameras):
+        if (visualize or record_video):
             self._build_camera()
             self._build_lights()
+
+        if (record_video):
+            self.create_video_recorder()
 
         if (visualize):
             self._prev_frame_time = 0.0
@@ -96,7 +101,15 @@ class IsaacLabEngine(engine.Engine):
             self._setup_keyboard()
 
         return
+
+    def create_video_recorder(self):
+        self.video_recorder = VideoRecorder(self)
+        Logger.print("Video recording enabled")
+        return
     
+    def get_video_recorder(self):
+        return self.video_recorder
+
     def get_name(self):
         return "isaac_lab"
     
@@ -654,16 +667,16 @@ class IsaacLabEngine(engine.Engine):
         self._keyboard_callbacks = dict()
         return
     
-    def _create_simulator(self, sim_timestep, visualize, enable_cameras=False):
-        # Headless rendering (enable_cameras without a display) requires a virtual display
-        if enable_cameras and not visualize:
+    def _create_simulator(self, sim_timestep, visualize, record_video=False):
+        # Headless rendering (record_video without a display) requires a virtual display
+        if record_video and not visualize:
             from util.display import ensure_virtual_display
             ensure_virtual_display()
 
         self._app_launcher = AppLauncher({
             "headless": not visualize,
             "device": self._device,
-            "enable_cameras": enable_cameras or visualize,
+            "enable_cameras": record_video or visualize,
         })
 
         import isaaclab.sim as sim_utils

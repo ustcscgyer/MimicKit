@@ -18,13 +18,13 @@ class PlayMode(enum.Enum):
 class SimEnv(base_env.BaseEnv):
     NAME = "sim_env"
 
-    def __init__(self, env_config, engine_config, num_envs, device, visualize, enable_cameras=False):
+    def __init__(self, env_config, engine_config, num_envs, device, visualize, record_video=False):
         super().__init__(visualize=visualize)
 
         self._device = device
         self._episode_length = env_config["episode_length"] # episode length in seconds
         
-        self._engine = self._build_engine(engine_config, num_envs, device, visualize, enable_cameras)
+        self._engine = self._build_engine(engine_config, num_envs, device, visualize, record_video)
         self._build_envs(env_config, num_envs)
         self._engine.initialize_sim()
         
@@ -32,8 +32,8 @@ class SimEnv(base_env.BaseEnv):
         self._build_sim_tensors(env_config)
         self._build_data_buffers()
 
-        self._enable_cameras = enable_cameras
-        if self._visualize or self._enable_cameras:
+        self._record_video = record_video
+        if self._visualize or self._record_video:
             self._build_camera(env_config)
 
         if self._visualize:
@@ -78,7 +78,7 @@ class SimEnv(base_env.BaseEnv):
 
         if (self._visualize):
             self._render()
-        elif (self._enable_cameras):
+        elif (self._record_video):
             self._update_camera()
         
         return self._obs_buf, self._reward_buf, self._done_buf, self._info
@@ -165,8 +165,8 @@ class SimEnv(base_env.BaseEnv):
         self._update_done()
         return
 
-    def _build_engine(self, engine_config, num_envs, device, visualize, enable_cameras=False):
-        engine = engine_builder.build_engine(engine_config, num_envs, device, visualize, enable_cameras=enable_cameras)
+    def _build_engine(self, engine_config, num_envs, device, visualize, record_video=False):
+        engine = engine_builder.build_engine(engine_config, num_envs, device, visualize, record_video=record_video)
         return engine
     
     @abc.abstractmethod

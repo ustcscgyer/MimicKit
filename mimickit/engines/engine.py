@@ -194,3 +194,6 @@ class Engine:
     
     def register_keyboard_callback(self, key_str, callback_func):
         return
+
+    def get_video_recorder(self):
+        return None

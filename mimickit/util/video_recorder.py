@@ -4,6 +4,8 @@ import numpy as np
 import os
 import tempfile
 from typing import TYPE_CHECKING, Any
+import wandb
+from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 
 from util.logger import Logger
 
@@ -22,27 +24,20 @@ class VideoRecorder:
     
     Args:
         engine: The simulation engine (e.g. IsaacLabEngine).
-        video_length: Number of steps per video recording.
-        video_interval: Interval (in training steps) between video recordings.
         resolution: Tuple (width, height) for the captured frames.
         fps: Frames per second for the output video.
         cam_prim_path: USD prim path for the camera to capture from.
     """
 
-    def __init__(self, engine: engine.Engine, video_length: int = 200,
-                 video_interval: int = 2000, resolution: tuple[int, int] = (640, 480),
+    def __init__(self, engine: engine.Engine, resolution: tuple[int, int] = (640, 480),
                  fps: int = 30, cam_prim_path: str = "/OmniverseKit_Persp") -> None:
         self._engine: engine.Engine = engine
-        self._video_length: int = video_length
-        self._video_interval: int = video_interval
         self._resolution: tuple[int, int] = resolution
         self._fps: int = fps
         self._cam_prim_path: str = cam_prim_path
 
         self._recorded_frames: list[np.ndarray] = []
         self._recording: bool = False
-        self._global_step: int = 0
-        self._video_count: int = 0
 
         self._annotator: Any | None = None
         self._render_product: Any | None = None
@@ -91,28 +86,29 @@ class VideoRecorder:
         self._recorded_frames.append(frame)
         return
 
-    def pre_step(self) -> None:
-        """Call before each training step to check if recording should start."""
-        if not self._recording and (self._global_step % self._video_interval == 0):
-            self._start_recording()
-        return
-
-    def post_step(self) -> None:
-        """Call after each training step to capture frames and stop if done."""
-        if self._recording:
-            self._capture_frame()
-
-            if len(self._recorded_frames) >= self._video_length:
-                self._stop_recording()
-
-        self._global_step += 1
-        return
-
-    def _start_recording(self) -> None:
+    def start_recording(self) -> None:
         """Begin a new video recording."""
+        if self._recording:
+            Logger.print("[VideoRecorder] Already recording, stopping previous recording first")
+            self.stop_recording()
+        
         self._recorded_frames = []
         self._recording = True
-        Logger.print("[VideoRecorder] Started recording (step {})".format(self._global_step))
+        Logger.print("[VideoRecorder] Started recording")
+        return
+
+    def capture_frame(self) -> None:
+        """Capture a frame during recording. Call this each step while recording."""
+        if self._recording:
+            self._capture_frame()
+        return
+
+    def stop_recording(self) -> None:
+        """Stop recording, create video, upload to WandB, and clean up."""
+        if not self._recording:
+            return
+        
+        self._stop_recording()
         return
 
     def _stop_recording(self) -> None:
@@ -124,39 +120,29 @@ class VideoRecorder:
         self._recording = False
 
         try:
-            import wandb
-            from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
+            if len(self._recorded_frames) == 0:
+                Logger.print("[VideoRecorder] No frames recorded, skipping video creation")
+                return
 
             clip: ImageSequenceClip = ImageSequenceClip(self._recorded_frames, fps=self._fps)
 
-            with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+            with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as tmp:
                 temp_path: str = tmp.name
-
-            clip.write_videofile(temp_path, logger=None)
-
-            if wandb.run is not None:
-                wandb.log({
-                    "video": wandb.Video(temp_path, format="mp4"),
-                }, step=self._logger_step_tracker.get_current_step())
-                Logger.print("[VideoRecorder] Uploaded video to WandB ({} frames, step {})".format(
-                    len(self._recorded_frames), self._global_step))
-            else:
-                Logger.print("[VideoRecorder] WandB not initialized, skipping upload")
-
-            # Clean up temp file
-            os.remove(temp_path)
-
+            
+                clip.write_videofile(temp_path, logger=None)
+                if wandb.run is not None:
+                    step_val = self._logger_step_tracker.get_current_step()
+                    wandb.log({
+                        "video": wandb.Video(temp_path, format="mp4"),
+                    }, step=step_val)
+                    Logger.print("[VideoRecorder] Uploaded video to WandB ({} frames, step {})".format(
+                        len(self._recorded_frames), step_val))
+                else:
+                    Logger.print("[VideoRecorder] WandB not initialized, skipping upload")
         except ImportError as e:
             Logger.print("[VideoRecorder] Missing dependency: {}. Video not saved.".format(e))
         except Exception as e:
             Logger.print("[VideoRecorder] Error creating video: {}".format(e))
 
         self._recorded_frames = []
-        self._video_count += 1
-        return
-
-    def flush(self) -> None:
-        """Force stop and upload any in-progress recording."""
-        if self._recording:
-            self._stop_recording()
         return

@@ -46,7 +46,6 @@ class BaseAgent(torch.nn.Module):
         self._mode = AgentMode.TRAIN
         self._curr_obs = None
         self._curr_info = None
-        self._video_recorder = None
         return
 
     def train_model(self, max_samples, out_dir, save_int_models, logger_type):
@@ -55,9 +54,10 @@ class BaseAgent(torch.nn.Module):
         out_model_file = os.path.join(out_dir, "model.pt")
         log_file = os.path.join(out_dir, "log.txt")
         self._logger = self._build_logger(logger_type, log_file, self._config)
-
-        if (self._video_recorder is not None):
-            self._video_recorder.set_logger_step_tracker(self._logger)
+        
+        # Set logger on video recorder if it exists in the engine
+        if self._env._engine.get_video_recorder():
+            self._env._engine.video_recorder.set_logger_step_tracker(self._logger)
 
         if (save_int_models):
             int_out_dir = os.path.join(out_dir, "int_models")
@@ -91,13 +91,11 @@ class BaseAgent(torch.nn.Module):
             
             self._iter += 1
 
-        # flush any in-progress video recording at end of training
-        if (self._video_recorder is not None):
-            self._video_recorder.flush()
-
         return
 
     def test_model(self, num_episodes):
+        Logger.print("[BaseAgent] Testing model for {} episodes".format(num_episodes))
+        
         self.eval()
         self.set_mode(AgentMode.TEST)
         
@@ -277,9 +275,6 @@ class BaseAgent(torch.nn.Module):
 
     def _rollout_train(self, num_steps):
         for i in range(num_steps):
-            if (self._video_recorder is not None):
-                self._video_recorder.pre_step()
-
             action, action_info = self._decide_action(self._curr_obs, self._curr_info)
             self._record_data_pre_step(self._curr_obs, self._curr_info, action, action_info)
 
@@ -289,13 +284,15 @@ class BaseAgent(torch.nn.Module):
             
             self._curr_obs, self._curr_info = self._reset_done_envs(done)
             self._exp_buffer.inc()
-
-            if (self._video_recorder is not None):
-                self._video_recorder.post_step()
         return
     
     def _rollout_test(self, num_episodes):
         self._test_return_tracker.reset()
+
+        # Start video recording if available
+        video_recorder = self._env._engine.get_video_recorder()
+        if video_recorder:
+            video_recorder.start_recording()
 
         if (num_episodes == 0):
             test_info = {
@@ -315,6 +312,10 @@ class BaseAgent(torch.nn.Module):
                 next_obs, r, done, next_info = self._step_env(action)
                 self._test_return_tracker.update(r, done)
             
+                # Capture frame for video recording
+                if video_recorder:
+                    video_recorder.capture_frame()
+            
                 self._curr_obs, self._curr_info = self._reset_done_envs(done)
             
                 eps_per_env = self._test_return_tracker.get_eps_per_env()
@@ -328,6 +329,10 @@ class BaseAgent(torch.nn.Module):
                 "mean_ep_len": test_ep_len.item(),
                 "num_eps": self._test_return_tracker.get_episodes()
             }
+
+            # Stop video recording and upload
+            if video_recorder:
+                video_recorder.stop_recording()
         return test_info
 
     @abc.abstractmethod
