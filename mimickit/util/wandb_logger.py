@@ -28,8 +28,8 @@ class WandbLogger(logger.Logger):
             if self._run_name is not None:
                 exp_name = self._run_name
             else:
-                basename = os.path.basename(filename)
-                exp_name = os.path.splitext(basename)[0]
+            basename = os.path.basename(filename)
+            exp_name = os.path.splitext(basename)[0]
             wandb.init(project=self._project_name, name=exp_name, config=self._param_config)
         
         return

@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MimicKit Motion Viewer</title>
+    <meta charset="utf-8">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; overflow: hidden; }
+        
+        #container { display: flex; height: 100vh; }
+        
+        #sidebar {
+            width: 320px;
+            background: #f5f5f5;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        #sidebar-header {
+            padding: 20px;
+            background: #fff;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        #sidebar-header h1 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        #sidebar-header .subtitle {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        #motion-list-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        
+        .motion-item {
+            padding: 12px 15px;
+            margin: 5px 0;
+            cursor: pointer;
+            border-radius: 6px;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        
+        .motion-item:hover {
+            background: #e3f2fd;
+            border-color: #2196f3;
+            transform: translateX(3px);
+        }
+        
+        .motion-item.active {
+            background: #2196f3;
+            color: white;
+            border-color: #2196f3;
+        }
+        
+        #info-panel {
+            padding: 15px;
+            background: #fff;
+            border-top: 1px solid #ddd;
+            font-size: 12px;
+            color: #666;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        #info-panel .info-label {
+            font-weight: 600;
+            color: #333;
+            margin-top: 8px;
+            margin-bottom: 4px;
+        }
+        
+        #info-tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 10px;
+        }
+        
+        #info-tabs button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 12px;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        #info-tabs button:hover {
+            background: #f0f0f0;
+        }
+        
+        #info-tabs button.active {
+            border-bottom-color: #2196f3;
+            color: #2196f3;
+            font-weight: 600;
+        }
+        
+        .info-content {
+            display: none;
+        }
+        
+        .info-content.active {
+            display: block;
+        }
+        
+        #raw-data {
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        
+        #viewer {
+            flex: 1;
+            position: relative;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-width: 400px;
+        }
+        
+        #controls .button-row {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        #controls button {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 6px;
+            background: #2196f3;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        #controls button:hover {
+            background: #1976d2;
+        }
+        
+        #controls button:active {
+            background: #0d47a1;
+        }
+        
+        #controls .info-row {
+            display: flex;
+            justify-content: space-around;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        #controls .info-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        #controls .info-label {
+            font-size: 11px;
+            color: #999;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+        
+        #controls .info-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        #frame-slider {
+            width: 100%;
+            cursor: pointer;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 18px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="sidebar">
+            <div id="sidebar-header">
+                <h1>MimicKit Motion Viewer</h1>
+                <div class="subtitle">Select a motion to preview</div>
+            </div>
+            <div id="motion-list-container">
+                <div id="motion-list"></div>
+            </div>
+            <div id="info-panel">
+                <div id="info-tabs">
+                    <button class="active" data-tab="info">Info</button>
+                    <button data-tab="raw">Raw Data</button>
+                </div>
+                <div id="info-content" class="info-content active">
+                    <div>Select a motion file to view details</div>
+                </div>
+                <div id="raw-data-content" class="info-content">
+                    <div id="raw-data">No data loaded</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="viewer">
+            <div id="loading">Loading...</div>
+        </div>
+    </div>
+    
+    <div id="controls" style="display: none;">
+        <div class="button-row">
+            <button id="playBtn">▶ Play</button>
+            <button id="pauseBtn">⏸ Pause</button>
+            <button id="resetBtn">↺ Reset</button>
+        </div>
+        <input type="range" id="frame-slider" min="0" max="100" value="0">
+        <div class="info-row">
+            <div class="info-item">
+                <div class="info-label">Frame</div>
+                <div class="info-value"><span id="frameNum">0</span> / <span id="totalFrames">0</span></div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Time</div>
+                <div class="info-value"><span id="timeNum">0.00</span>s</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">FPS</div>
+                <div class="info-value"><span id="fpsNum">30</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <script>
+        let scene, camera, renderer, controls;
+        let skeleton = null;
+        let skeletonData = null;
+        let currentMotion = null;
+        let currentFrame = 0;
+        let isPlaying = false;
+        let lastTime = 0;
+        
+        // Initialize Three.js scene
+        function init() {
+            const viewerDiv = document.getElementById('viewer');
+            const loading = document.getElementById('loading');
+            
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.Fog(0x87CEEB, 10, 50);
+            
+            camera = new THREE.PerspectiveCamera(60, viewerDiv.clientWidth / viewerDiv.clientHeight, 0.1, 100);
+            camera.position.set(3, 2, 5);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(viewerDiv.clientWidth, viewerDiv.clientHeight);
+            renderer.shadowMap.enabled = true;
+            viewerDiv.appendChild(renderer.domElement);
+            
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 1, 0);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            
+            const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            sunLight.position.set(5, 10, 5);
+            sunLight.castShadow = true;
+            sunLight.shadow.camera.left = -10;
+            sunLight.shadow.camera.right = 10;
+            sunLight.shadow.camera.top = 10;
+            sunLight.shadow.camera.bottom = -10;
+            scene.add(sunLight);
+            
+            // Ground
+            const groundGeometry = new THREE.PlaneGeometry(100, 100);
+            const groundMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x4a7c59,
+                roughness: 0.8 
+            });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+            
+            // Grid
+            const gridHelper = new THREE.GridHelper(20, 20, 0x888888, 0x444444);
+            gridHelper.position.y = 0.01;
+            scene.add(gridHelper);
+            
+            // Axes helper
+            const axesHelper = new THREE.AxesHelper(1);
+            scene.add(axesHelper);
+            
+            window.addEventListener('resize', onWindowResize);
+            
+            loading.style.display = 'none';
+            animate();
+        }
+        
+        function onWindowResize() {
+            const viewerDiv = document.getElementById('viewer');
+            camera.aspect = viewerDiv.clientWidth / viewerDiv.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(viewerDiv.clientWidth, viewerDiv.clientHeight);
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (isPlaying && currentMotion) {
+                const now = performance.now();
+                const dt = (now - lastTime) / 1000.0;
+                lastTime = now;
+                
+                const frameDt = 1.0 / currentMotion.fps;
+                currentFrame += dt / frameDt;
+                
+                if (currentFrame >= currentMotion.num_frames - 1) {
+                    if (currentMotion.loop_mode === 1) { // WRAP
+                        currentFrame = 0;
+                    } else { // CLAMP
+                        currentFrame = currentMotion.num_frames - 1;
+                        isPlaying = false;
+                    }
+                }
+                
+                updatePose(Math.floor(currentFrame));
+            }
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        function createSkeleton() {
+            // Remove existing skeleton
+            if (skeleton) {
+                scene.remove(skeleton);
+            }
+            
+            if (!skeletonData) {
+                console.warn('No skeleton data loaded');
+                return;
+            }
+            
+            skeleton = new THREE.Group();
+            scene.add(skeleton);
+            
+            const numBodies = skeletonData.num_bodies;
+            skeleton.userData.joints = [];
+            skeleton.userData.bones = [];
+            
+            // Create joint spheres
+            const jointGeometry = new THREE.SphereGeometry(0.05, 12, 12);
+            for (let i = 0; i < numBodies; i++) {
+                const color = i === 0 ? 0xff4444 : 0x4488ff; // Root is red, others blue
+                const size = i === 0 ? 0.08 : 0.05;
+                
+                const material = new THREE.MeshStandardMaterial({ 
+                    color: color,
+                    metalness: 0.3,
+                    roughness: 0.7
+                });
+                const sphere = new THREE.Mesh(
+                    new THREE.SphereGeometry(size, 12, 12), 
+                    material
+                );
+                sphere.castShadow = true;
+                sphere.name = skeletonData.body_names[i];
+                skeleton.add(sphere);
+                skeleton.userData.joints.push(sphere);
+            }
+            
+            // Create bones (cylinders connecting parent to child)
+            for (let i = 1; i < numBodies; i++) {
+                const parentIdx = skeletonData.parent_indices[i];
+                if (parentIdx >= 0) {
+                    const boneMaterial = new THREE.MeshStandardMaterial({ 
+                        color: 0x88aaff,
+                        metalness: 0.2,
+                        roughness: 0.8
+                    });
+                    const bone = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.02, 0.02, 1, 8),
+                        boneMaterial
+                    );
+                    bone.castShadow = true;
+                    skeleton.add(bone);
+                    skeleton.userData.bones.push({ mesh: bone, childIdx: i, parentIdx: parentIdx });
+                }
+            }
+        }
+        
+        function updatePose(frameIdx) {
+            if (!skeletonData || !skeleton || frameIdx >= skeletonData.frames.length) return;
+            
+            const bodyPositions = skeletonData.frames[frameIdx];
+            const joints = skeleton.userData.joints;
+            const bones = skeleton.userData.bones;
+            
+            // Update joint positions (convert Z-up to Y-up for Three.js)
+            for (let i = 0; i < bodyPositions.length; i++) {
+                const pos = bodyPositions[i];
+                joints[i].position.set(pos[0], pos[2], -pos[1]);
+            }
+            
+            // Update bones (cylinders between parent and child)
+            bones.forEach(bone => {
+                const childPos = joints[bone.childIdx].position;
+                const parentPos = joints[bone.parentIdx].position;
+                
+                // Position bone at midpoint
+                const midpoint = new THREE.Vector3().addVectors(childPos, parentPos).multiplyScalar(0.5);
+                bone.mesh.position.copy(midpoint);
+                
+                // Orient bone to point from parent to child
+                const direction = new THREE.Vector3().subVectors(childPos, parentPos);
+                const length = direction.length();
+                bone.mesh.scale.y = length;
+                
+                // Align cylinder (default is Y-axis) with direction
+                bone.mesh.quaternion.setFromUnitVectors(
+                    new THREE.Vector3(0, 1, 0),
+                    direction.normalize()
+                );
+            });
+            
+            // Update UI
+            document.getElementById('frameNum').textContent = frameIdx;
+            document.getElementById('timeNum').textContent = (frameIdx / currentMotion.fps).toFixed(2);
+            document.getElementById('frame-slider').value = frameIdx;
+        }
+        
+        async function loadMotion(filename) {
+            try {
+                // Load motion metadata
+                const response = await fetch(`/api/motion/${filename}`);
+                if (!response.ok) throw new Error('Failed to load motion');
+                currentMotion = await response.json();
+                
+                // Load skeleton data with forward kinematics
+                const skeletonResponse = await fetch(`/api/motion/${filename}/skeleton`);
+                if (!skeletonResponse.ok) throw new Error('Failed to load skeleton');
+                skeletonData = await skeletonResponse.json();
+                
+                // Update UI
+                document.getElementById('totalFrames').textContent = currentMotion.num_frames;
+                document.getElementById('fpsNum').textContent = currentMotion.fps;
+                document.getElementById('frame-slider').max = currentMotion.num_frames - 1;
+                document.getElementById('controls').style.display = 'flex';
+                
+                // Update info panel
+                const loopModeStr = currentMotion.loop_mode === 0 ? 'CLAMP' : 'WRAP';
+                const fileSizeKB = (currentMotion.file_size / 1024).toFixed(2);
+                const fileSizeMB = (currentMotion.file_size / (1024 * 1024)).toFixed(2);
+                const fileSizeStr = currentMotion.file_size > 1024 * 1024 
+                    ? `${fileSizeMB} MB` 
+                    : `${fileSizeKB} KB`;
+                
+                document.getElementById('info-content').innerHTML = `
+                    <div class="info-label">File</div>
+                    <div>${filename}</div>
+                    <div>Size: ${fileSizeStr}</div>
+                    <div class="info-label">Stats</div>
+                    <div>Frames: ${currentMotion.num_frames}</div>
+                    <div>FPS: ${currentMotion.fps}</div>
+                    <div>Duration: ${currentMotion.duration.toFixed(2)}s</div>
+                    <div>Loop Mode: ${loopModeStr}</div>
+                    <div>Frame Size: ${currentMotion.frames[0].length} values</div>
+                `;
+                
+                // Load raw data
+                loadRawData(filename);
+                
+                // Create skeleton and show first frame
+                createSkeleton();
+                currentFrame = 0;
+                isPlaying = false;
+                updatePose(0);
+                
+                // Highlight selected motion
+                document.querySelectorAll('.motion-item').forEach(item => {
+                    item.classList.toggle('active', item.dataset.file === filename);
+                });
+                
+            } catch (error) {
+                console.error('Error loading motion:', error);
+                alert('Failed to load motion: ' + error.message);
+            }
+        }
+        
+        async function loadMotionList() {
+            try {
+                const response = await fetch('/api/motions');
+                const motions = await response.json();
+                
+                const listDiv = document.getElementById('motion-list');
+                listDiv.innerHTML = '';
+                
+                if (motions.length === 0) {
+                    listDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">No motion files found</div>';
+                    return;
+                }
+                
+                // Group by character type
+                const grouped = {};
+                motions.forEach(motion => {
+                    const parts = motion.split('/');
+                    const character = parts[0] || 'other';
+                    if (!grouped[character]) grouped[character] = [];
+                    grouped[character].push(motion);
+                });
+                
+                // Render grouped list
+                Object.keys(grouped).sort().forEach(character => {
+                    const header = document.createElement('div');
+                    header.style.cssText = 'font-weight: 600; color: #666; padding: 10px 5px 5px; font-size: 12px; text-transform: uppercase;';
+                    header.textContent = character;
+                    listDiv.appendChild(header);
+                    
+                    grouped[character].forEach(motion => {
+                        const div = document.createElement('div');
+                        div.className = 'motion-item';
+                        div.dataset.file = motion;
+                        const filename = motion.split('/').pop().replace('.pkl', '');
+                        div.textContent = filename;
+                        div.title = motion;
+                        div.onclick = () => loadMotion(motion);
+                        listDiv.appendChild(div);
+                    });
+                });
+                
+                // Auto-load first motion
+                if (motions.length > 0) {
+                    loadMotion(motions[0]);
+                }
+                
+            } catch (error) {
+                console.error('Error loading motion list:', error);
+                document.getElementById('motion-list').innerHTML = '<div style="padding: 20px; color: red;">Error loading motions</div>';
+            }
+        }
+        
+        // Control event listeners
+        document.getElementById('playBtn').onclick = () => {
+            if (currentMotion) {
+                isPlaying = true;
+                lastTime = performance.now();
+            }
+        };
+        
+        document.getElementById('pauseBtn').onclick = () => {
+            isPlaying = false;
+        };
+        
+        document.getElementById('resetBtn').onclick = () => {
+            currentFrame = 0;
+            isPlaying = false;
+            updatePose(0);
+        };
+        
+        document.getElementById('frame-slider').oninput = (e) => {
+            currentFrame = parseInt(e.target.value);
+            isPlaying = false;
+            updatePose(currentFrame);
+        };
+        
+        async function loadRawData(filename) {
+            try {
+                const response = await fetch(`/api/motion/${filename}/raw`);
+                if (!response.ok) throw new Error('Failed to load raw data');
+                
+                const rawData = await response.json();
+                document.getElementById('raw-data').textContent = JSON.stringify(rawData, null, 2);
+                
+            } catch (error) {
+                console.error('Error loading raw data:', error);
+                document.getElementById('raw-data').textContent = 'Error loading raw data';
+            }
+        }
+        
+        // Tab switching
+        document.querySelectorAll('#info-tabs button').forEach(btn => {
+            btn.onclick = () => {
+                const tab = btn.dataset.tab;
+                
+                // Update tab buttons
+                document.querySelectorAll('#info-tabs button').forEach(b => {
+                    b.classList.toggle('active', b === btn);
+                });
+                
+                // Update content
+                document.getElementById('info-content').classList.toggle('active', tab === 'info');
+                document.getElementById('raw-data-content').classList.toggle('active', tab === 'raw');
+            };
+        });
+        
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (!currentMotion) return;
+            
+            if (e.code === 'Space') {
+                e.preventDefault();
+                isPlaying = !isPlaying;
+                if (isPlaying) lastTime = performance.now();
+            } else if (e.code === 'ArrowLeft') {
+                currentFrame = Math.max(0, currentFrame - 1);
+                updatePose(Math.floor(currentFrame));
+            } else if (e.code === 'ArrowRight') {
+                currentFrame = Math.min(currentMotion.num_frames - 1, currentFrame + 1);
+                updatePose(Math.floor(currentFrame));
+            } else if (e.code === 'Home') {
+                currentFrame = 0;
+                updatePose(0);
+            } else if (e.code === 'End') {
+                currentFrame = currentMotion.num_frames - 1;
+                updatePose(Math.floor(currentFrame));
+            }
+        });
+        
+        // Initialize
+        init();
+        loadMotionList();
+    </script>
+</body>
+</html>
