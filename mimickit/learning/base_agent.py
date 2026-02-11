@@ -53,7 +53,8 @@ class BaseAgent(torch.nn.Module):
 
         out_model_file = os.path.join(out_dir, "model.pt")
         log_file = os.path.join(out_dir, "log.txt")
-        self._logger = self._build_logger(logger_type, log_file, self._config)
+        run_name = self._config.get('_run_name', None)
+        self._logger = self._build_logger(logger_type, log_file, self._config, run_name=run_name)
 
         if (save_int_models):
             int_out_dir = os.path.join(out_dir, "int_models")
@@ -77,9 +78,9 @@ class BaseAgent(torch.nn.Module):
             env_diag_info = self._env.record_diagnostics()
             self._log_train_info(train_info, test_info, env_diag_info, start_time) 
             self._logger.print_log()
+            self._logger.write_log()
 
             if (output_iter):
-                self._logger.write_log()
                 self._output_train_model(self._iter, out_model_file, int_out_dir)
 
                 self._train_return_tracker.reset()
@@ -214,11 +215,11 @@ class BaseAgent(torch.nn.Module):
     def _get_exp_buffer_length(self):
         return 0
     
-    def _build_logger(self, logger_type, log_file, config):
+    def _build_logger(self, logger_type, log_file, config, run_name=None):
         if (logger_type == "tb"):
             log = tb_logger.TBLogger()
         elif (logger_type == "wandb"):
-            log = wandb_logger.WandbLogger("mimickit", config)
+            log = wandb_logger.WandbLogger("mimickit", config, run_name=run_name)
         else:
             assert(False), "Unsupported logger: {:s}".format(logger_type)
 

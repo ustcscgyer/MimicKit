@@ -6,11 +6,12 @@ import util.logger as logger
 class WandbLogger(logger.Logger):
     MISC_TAG = "Misc"
 
-    def __init__(self, project_name, param_config):
+    def __init__(self, project_name, param_config, run_name=None):
         super().__init__()
         
         self._project_name = project_name
         self._param_config = param_config
+        self._run_name = run_name
         self._step_var_key = None
         self._collections = dict()
         return
@@ -23,8 +24,12 @@ class WandbLogger(logger.Logger):
         super().configure_output_file(filename)
 
         if (logger.Logger.is_root()):
-            basename = os.path.basename(filename)
-            exp_name = os.path.splitext(basename)[0]
+            # Use run_name if provided, otherwise fall back to filename basename
+            if self._run_name is not None:
+                exp_name = self._run_name
+            else:
+                basename = os.path.basename(filename)
+                exp_name = os.path.splitext(basename)[0]
             wandb.init(project=self._project_name, name=exp_name, config=self._param_config)
         
         return

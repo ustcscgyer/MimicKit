@@ -3,6 +3,7 @@ import os
 import shutil
 import sys
 import time
+from datetime import datetime
 
 import envs.env_builder as env_builder
 import learning.agent_builder as agent_builder
@@ -92,6 +93,11 @@ def set_rand_seed(args):
     util.set_rand_seed(rand_seed)
     return
 
+def generate_run_name(run_name_suffix="foo"):
+    """Generate a timestamped run name in format YYYY-MM-DD_HH-MM-SS_{run_name}"""
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    return "{}_{}".format(timestamp, run_name_suffix)
+
 def run(rank, num_procs, device, master_port, args):
     mode = args.parse_string("mode", "train")
     num_envs = args.parse_int("num_envs", 1)
@@ -99,7 +105,13 @@ def run(rank, num_procs, device, master_port, args):
     logger_type = args.parse_string("logger", "tb")
     model_file = args.parse_string("model_file", "")
 
-    out_dir = args.parse_string("out_dir", "output/")
+    # Generate run name and create output directory
+    run_name_suffix = args.parse_string("run_name", "foo")
+    run_name = generate_run_name(run_name_suffix)
+    
+    base_out_dir = args.parse_string("out_dir", "output/")
+    out_dir = os.path.join(base_out_dir, run_name)
+    
     save_int_models = args.parse_bool("save_int_models", False)
     max_samples = args.parse_int("max_samples", np.iinfo(np.int64).max)
 
@@ -109,8 +121,14 @@ def run(rank, num_procs, device, master_port, args):
     set_np_formatting()
     create_output_dir(out_dir)
 
+    Logger.print("Run name: {}".format(run_name))
+    Logger.print("Output directory: {}".format(out_dir))
+    
     env = build_env(args, num_envs, device, visualize)
     agent = build_agent(args, env, device)
+    
+    # Add run_name to agent config for logger
+    agent._config['_run_name'] = run_name
 
     if (model_file != ""):
         agent.load(model_file)
