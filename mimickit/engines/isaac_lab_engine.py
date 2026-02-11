@@ -88,10 +88,10 @@ class IsaacLabEngine(engine.Engine):
 
         if (visualize or enable_cameras):
             self._build_camera()
+            self._build_lights()
 
         if (visualize):
             self._prev_frame_time = 0.0
-            self._build_lights()
             self._build_draw_interface()
             self._setup_keyboard()
 
