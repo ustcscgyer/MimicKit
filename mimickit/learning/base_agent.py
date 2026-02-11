@@ -53,7 +53,8 @@ class BaseAgent(torch.nn.Module):
 
         out_model_file = os.path.join(out_dir, "model.pt")
         log_file = os.path.join(out_dir, "log.txt")
-        self._logger = self._build_logger(logger_type, log_file, self._config)
+        run_name = self._config.get('_run_name', None)
+        self._logger = self._build_logger(logger_type, log_file, self._config, run_name=run_name)
 
         if (save_int_models):
             int_out_dir = os.path.join(out_dir, "int_models")
@@ -99,7 +100,7 @@ class BaseAgent(torch.nn.Module):
         with torch.no_grad():
             self._curr_obs, self._curr_info = self._reset_envs()
             test_info = self._rollout_test(num_eps_proc)
-
+            
         return test_info
     
     def get_action_size(self):
@@ -214,11 +215,11 @@ class BaseAgent(torch.nn.Module):
     def _get_exp_buffer_length(self):
         return 0
     
-    def _build_logger(self, logger_type, log_file, config):
+    def _build_logger(self, logger_type, log_file, config, run_name=None):
         if (logger_type == "tb"):
             log = tb_logger.TBLogger()
         elif (logger_type == "wandb"):
-            log = wandb_logger.WandbLogger("mimickit", config)
+            log = wandb_logger.WandbLogger("mimickit", config, run_name=run_name)
         else:
             assert(False), "Unsupported logger: {:s}".format(logger_type)
 
@@ -314,6 +315,7 @@ class BaseAgent(torch.nn.Module):
                 "mean_ep_len": test_ep_len.item(),
                 "num_eps": self._test_return_tracker.get_episodes()
             }
+
         return test_info
 
     @abc.abstractmethod
