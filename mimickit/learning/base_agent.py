@@ -53,9 +53,11 @@ class BaseAgent(torch.nn.Module):
 
         out_model_file = os.path.join(out_dir, "model.pt")
         log_file = os.path.join(out_dir, "log.txt")
-        self._logger = self._build_logger(logger_type, log_file, self._config)
+            
+        run_name = self._config.get('_run_name', None)
+        self._logger = self._build_logger(logger_type, log_file, self._config, run_name=run_name)
         
-        # Set logger on video recorder if it exists in the engine
+         # Set logger on video recorder if it exists in the engine
         if self._env._engine.get_video_recorder():
             self._env._engine.video_recorder.set_logger_step_tracker(self._logger)
 
@@ -81,9 +83,9 @@ class BaseAgent(torch.nn.Module):
             env_diag_info = self._env.record_diagnostics()
             self._log_train_info(train_info, test_info, env_diag_info, start_time) 
             self._logger.print_log()
+            self._logger.write_log()
 
             if (output_iter):
-                self._logger.write_log()
                 self._output_train_model(self._iter, out_model_file, int_out_dir)
 
                 self._train_return_tracker.reset()
@@ -220,11 +222,11 @@ class BaseAgent(torch.nn.Module):
     def _get_exp_buffer_length(self):
         return 0
     
-    def _build_logger(self, logger_type, log_file, config):
+    def _build_logger(self, logger_type, log_file, config, run_name=None):
         if (logger_type == "tb"):
             log = tb_logger.TBLogger()
         elif (logger_type == "wandb"):
-            log = wandb_logger.WandbLogger("mimickit", config)
+            log = wandb_logger.WandbLogger("mimickit", config, run_name=run_name)
         else:
             assert(False), "Unsupported logger: {:s}".format(logger_type)
 
@@ -386,7 +388,7 @@ class BaseAgent(torch.nn.Module):
         return val_fail
 
     def _log_train_info(self, train_info, test_info, env_diag_info, start_time):
-        wall_time = (time.time() - start_time) / (60 * 60) # store time in hours
+        wall_time = (time.time() - start_time) # store time in seconds
         self._logger.log("Iteration", self._iter, collection="1_Info")
         self._logger.log("Wall_Time", wall_time, collection="1_Info")
         self._logger.log("Samples", self._sample_count, collection="1_Info")
