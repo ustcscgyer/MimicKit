@@ -376,7 +376,7 @@ class BaseAgent(torch.nn.Module):
         return val_fail
 
     def _log_train_info(self, train_info, test_info, env_diag_info, start_time):
-        wall_time = (time.time() - start_time) / (60 * 60) # store time in hours
+        wall_time = (time.time() - start_time) # store time in seconds
         self._logger.log("Iteration", self._iter, collection="1_Info")
         self._logger.log("Wall_Time", wall_time, collection="1_Info")
         self._logger.log("Samples", self._sample_count, collection="1_Info")

@@ -52,7 +52,16 @@ After that, install the requirements:
 ```
 pip install -r requirements.txt
 ```
-Download assets and motion data from [here](https://1sfu-my.sharepoint.com/:u:/g/personal/xbpeng_sfu_ca/EclKq9pwdOBAl-17SogfMW0Bved4sodZBQ_5eZCiz9O--w?e=bqXBaa), then extract the contents into [`data/`](data/).
+
+The assets and motion data are managed as a git submodule. If you cloned without `--recurse-submodules`, initialize it:
+```bash
+git submodule update --init --recursive
+```
+
+For a fresh clone with data included:
+```bash
+git clone --recurse-submodules https://github.com/ustcscgyer/MimicKit.git
+```
 
 
 ---
